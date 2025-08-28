@@ -3,7 +3,7 @@ Release history
 
 
 Version 10.0.0 (2025-08-28)
---------------------------
+---------------------------
 
 Fork original project by Anagnostakis Ioannis
 

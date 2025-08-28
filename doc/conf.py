@@ -25,3 +25,6 @@ extensions = [
 
 # http://www.sphinx-doc.org/en/stable/theming.html
 html_theme = 'nature'
+
+autodoc_mock_imports = ["datetime"]
+

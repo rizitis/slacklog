@@ -1,22 +1,12 @@
-.. image:: https://img.shields.io/pypi/v/slacklog.svg?style=plastic
-   :target: https://pypi.python.org/pypi/slacklog
-   :alt: Download
-.. image:: https://travis-ci.org/vmj/slacklog.svg?branch=master
-   :target: https://travis-ci.org/vmj/slacklog
-   :alt: Build Status
-.. image:: https://readthedocs.org/projects/slacklog/badge/?version=latest
-   :target: https://slacklog.readthedocs.io/en/latest/?badge=latest
-   :alt: Docs
-
 slacklog -- Convert Slackware Changelog to various formats
 **********************************************************
 
 slacklog provides programs and a library to convert a Slackware
-ChangeLogs into other formats.  Currently, RSS, Atom, JSON, and PyBlosxom
+ChangeLog into other formats. Currently, RSS, Atom, JSON, and PyBlosxom
 formats are supported.
 
-| Source code: https://github.com/rizitis/slacklog 
-| Documentation: https://slacklog.readthedocs.org
+- Source code: `https://github.com/rizitis/slacklog <https://github.com/rizitis/slacklog>`_
+- Documentation: `https://slacklog.readthedocs.org <https://slacklog.readthedocs.org>`_
 
 .. contents::
 
@@ -39,40 +29,33 @@ Typical usage of the program looks like this::
 Requirements
 ============
 
-In addition to Python, `python3-dateutil
-from SBo is required.
+In addition to Python, `python3-dateutil` from SlackBuilds.org is required.
 
-Python versions 3.12 are tested, together with python3-dateutil-2.9.0
+Python 3.12 is tested together with python3-dateutil-2.9.0.
 
 
 Installation
 ============
 
-Download the source archive and
-use the included SlackBuild.
+Download the source archive and use the included SlackBuild.
 
-The source code of this fork is available at 
-`Github <https://github.com/rizitis/slacklog>`_
-git repository in the python3 branch.
-
-
-
+The source code of this fork is available at
+`GitHub <https://github.com/rizitis/slacklog>`_ (python3 branch).
 
 
 Authors
 =======
 
-Original author is Mikko Värri
-(vmj@linuxbox.fi).
+Original author: Mikko Värri (vmj@linuxbox.fi)
 
-This version is a fork of [slacklog](https://github.com/vmj/slacklog).
-Modifications made by Ioannis Anagnostakis (rizitis):
-- Modified scripts for python3.9+
-- Removed test.
+Current version is a fork by Ioannis Anagnostakis (rizitis):
+
+- Modified scripts for Python 3.9+
+- Removed Docker and tests
 
 
 License
 =======
 
-slacklog is Free Software, licensed under GNU General Public License
-(GPL), version 3 or later.  See LICENSE.txt file for details.
+slacklog is Free Software, licensed under the GNU General Public License (GPL),
+version 3 or later. See LICENSE.txt file for details.
