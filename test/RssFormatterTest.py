@@ -40,6 +40,8 @@ class RssFormatterTest(unittest.TestCase):
         self.update_rss("slackware64", "14.1",    'Mon Nov 18 20:52:16 UTC 2013')
         self.update_rss("slackware",   "14.2",    'Tue Jul  5 04:52:45 UTC 2016')
         self.update_rss("slackware64", "14.2",    'Tue Jul  5 04:52:45 UTC 2016')
+        self.update_rss("slackware",   "15.0",    'Wed Feb  2 18:39:59 UTC 2022')
+        self.update_rss("slackware64", "15.0",    'Wed Feb  2 18:39:59 UTC 2022')
         self.update_rss("slackware",   "current", 'Thu Jan  1 00:00:00 UTC 1970')
         self.update_rss("slackware64", "current", 'Thu Jan  1 00:00:00 UTC 1970')
 
