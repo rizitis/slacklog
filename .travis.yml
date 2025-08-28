@@ -1,61 +1,22 @@
 language: python
-matrix:
-  include:
-  - os: linux
-    dist: xenial
-    sudo: required
-    python: '3.7'
-    env: DATEUTIL_VERSION=2.1
-  - os: linux
-    dist: xenial
-    sudo: required
-    python: '3.7'
-    env: DATEUTIL_VERSION=2.2
-  - os: linux
-    dist: xenial
-    sudo: required
-    python: '3.7'
-    env: DATEUTIL_VERSION=2.3
-  - os: linux
-    dist: xenial
-    sudo: required
-    python: '3.7'
-    env: DATEUTIL_VERSION=2.4.2
-  - os: linux
-    dist: xenial
-    sudo: required
-    python: '3.7'
-    env: DATEUTIL_VERSION=2.5.3
-  - os: linux
-    dist: xenial
-    sudo: required
-    python: '3.7'
-    env: DATEUTIL_VERSION=2.6.1
-  - os: linux
-    dist: xenial
-    sudo: required
-    python: '3.7'
-    env: DATEUTIL_VERSION=2.7.5
-  - os: linux
-    dist: xenial
-    sudo: required
-    python: '3.7'
-    env: DATEUTIL_VERSION=2.8.0
+
 python:
- - 2.7
- - 3.4
- - 3.5
- - 3.6
+  - "3.7"
+  - "3.8"
+  - "3.9"
+  - "3.10"
+  - "3.11"
+  - "3.12"
+
 env:
- - DATEUTIL_VERSION=2.1
- - DATEUTIL_VERSION=2.2
- - DATEUTIL_VERSION=2.3
- - DATEUTIL_VERSION=2.4.2
- - DATEUTIL_VERSION=2.5.3
- - DATEUTIL_VERSION=2.6.1
- - DATEUTIL_VERSION=2.7.5
- - DATEUTIL_VERSION=2.8.0
+  - DATEUTIL_VERSION=2.7.5
+  - DATEUTIL_VERSION=2.8.0
+  - DATEUTIL_VERSION=2.8.2
+
 install:
- - pip install python-dateutil==$DATEUTIL_VERSION
- - python setup.py install
-script: python setup.py test
+  - pip install python-dateutil==$DATEUTIL_VERSION
+  - pip install -e .
+  - pip install pytest
+
+script:
+  - pytest
