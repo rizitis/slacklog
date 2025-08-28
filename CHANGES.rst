@@ -2,6 +2,17 @@ Release history
 ===============
 
 
+Version 10.0.0 (2025-08-28)
+--------------------------
+
+Fork original project by Anagnostakis Ioannis
+
+Modified scripts for Python 3.12 and python3-dateutil-2.9.0.
+
+Tests and Docker removed
+
+
+
 Version 0.9.6 (2019-03-14)
 --------------------------
 

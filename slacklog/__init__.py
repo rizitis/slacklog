@@ -1,3 +1,3 @@
 """Convert Slackware ChangeLog to various formats"""
 
-__version__ = '0.9.6'
+__version__ = '10.0.0'

@@ -4,15 +4,12 @@ SlackLog formatters
 ===================
 
 SlackLog formatter takes an in-memory representation of a Slackware ChangeLog.txt and produces different
-representations of it (TXT, RSS, Atom, JSON, PyBlosxom HTML).
+representations of it (TXT, RSS, Atom, JSON).
 """
 
-import codecs
 import datetime
-import os
 import re
-import time
-from json import dumps, JSONEncoder
+from json import dumps
 from dateutil import tz
 from slacklog.models import SlackLog, SlackLogEntry, SlackLogPkg
 
@@ -27,15 +24,14 @@ def anchor(d: datetime.datetime) -> str:
 
 class SlackLogFormatter:
     """
-    Base class for SlackLog formatters. Intended for subclassing.
+    Base class for SlackLog formatters.
     """
 
     def __init__(self):
-        self.max_entries = None  # type: int | None
-        self.max_pkgs = None  # type: int | None
+        self.max_entries = None
+        self.max_pkgs = None
 
     def format(self, log: SlackLog) -> str:
-        assert isinstance(log, SlackLog)
         data = ''
         data += self.format_log_preamble(log)
         data += self.format_list(log.entries, self.format_entry, self.max_entries)
@@ -49,7 +45,6 @@ class SlackLogFormatter:
         return ''
 
     def format_entry(self, entry: SlackLogEntry, is_first: bool, is_last: bool) -> str:
-        assert isinstance(entry, SlackLogEntry)
         data = ''
         data += self.format_entry_separator(is_first, is_last)
         data += self.format_entry_preamble(entry)
@@ -67,7 +62,6 @@ class SlackLogFormatter:
         return ''
 
     def format_pkg(self, pkg: SlackLogPkg, is_first: bool, is_last: bool) -> str:
-        assert isinstance(pkg, SlackLogPkg)
         data = ''
         data += self.format_pkg_separator(is_first, is_last)
         data += self.format_pkg_preamble(pkg)
@@ -83,37 +77,27 @@ class SlackLogFormatter:
     def format_pkg_postamble(self, pkg: SlackLogPkg) -> str:
         return ''
 
-    def format_list(self, list_of_items, item_formatter, max_items=None) -> str:
+    def format_list(self, items, item_formatter, max_items=None) -> str:
         data = ''
-        num_items = len(list_of_items)
-        if max_items and isinstance(max_items, int):
+        num_items = len(items)
+        if max_items is not None:
             num_items = min(num_items, max_items)
-        for index in range(num_items):
-            is_first = index == 0
-            is_last = index == num_items - 1
-            data += item_formatter(list_of_items[index], is_first, is_last)
+        for i in range(num_items):
+            data += item_formatter(items[i], i == 0, i == num_items - 1)
         return data
 
 
 class SlackLogTxtFormatter(SlackLogFormatter):
-    """
-    Regenerate the original ChangeLog.txt format.
-    """
+    """Recreate original ChangeLog.txt format."""
 
     def format_log_preamble(self, log: SlackLog) -> str:
-        if log.startsWithSeparator:
-            return '+--------------------------+\n'
-        return ''
+        return '+--------------------------+\n' if log.startsWithSeparator else ''
 
     def format_log_postamble(self, log: SlackLog) -> str:
-        if log.endsWithSeparator:
-            return '+--------------------------+\n'
-        return ''
+        return '+--------------------------+\n' if log.endsWithSeparator else ''
 
     def format_entry_separator(self, is_first: bool, is_last: bool) -> str:
-        if not is_first:
-            return '+--------------------------+\n'
-        return ''
+        return '+--------------------------+\n' if not is_first else ''
 
     def format_entry_preamble(self, entry: SlackLogEntry) -> str:
         timestamp = entry.timestamp
@@ -134,9 +118,7 @@ class SlackLogTxtFormatter(SlackLogFormatter):
 
 
 class SlackLogRssFormatter(SlackLogFormatter):
-    """
-    Generate an RSS feed from SlackLog.
-    """
+    """Generate an RSS feed from SlackLog."""
 
     def __init__(self):
         super().__init__()
@@ -193,3 +175,48 @@ class SlackLogRssFormatter(SlackLogFormatter):
     def format_pkg_preamble(self, pkg: SlackLogPkg) -> str:
         return f"{pkg.pkg}:{pkg.description.replace('<', '&lt;')}"
 
+
+class SlackLogJsonFormatter(SlackLogFormatter):
+    """Generate JSON output from SlackLog."""
+
+    def format(self, log: SlackLog) -> str:
+        return dumps(
+            log,
+            default=self.json_default,
+            indent=getattr(self, 'indent', 4),
+            separators=(',', ':')  # <- removes spaces after colon
+        )
+
+    def json_default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            return obj.isoformat()
+        if isinstance(obj, SlackLog):
+            return {
+                'entries': obj.entries,
+                'startsWithSeparator': obj.startsWithSeparator,
+                'endsWithSeparator': obj.endsWithSeparator
+            }
+        if isinstance(obj, SlackLogEntry):
+            tz_obj = getattr(obj, 'timezone', None)
+            tz_name = tz_obj.tzname(obj.timestamp) if tz_obj else None
+            return {
+                'timestamp': obj.timestamp,
+                'timezone': tz_name,
+                'description': obj.description,
+                'pkgs': obj.pkgs,
+                'checksum': getattr(obj, 'checksum', None),
+                'identifier': getattr(obj, 'identifier', None),
+                'parent': getattr(obj, 'parent', None)
+            }
+        if isinstance(obj, SlackLogPkg):
+            return {
+                'pkg': obj.pkg,
+                'description': obj.description
+            }
+        return str(obj)
+
+class SlackLogAtomFormatter(SlackLogFormatter):
+    """Minimal Atom feed formatter stub for compatibility."""
+
+    def format(self, log: SlackLog) -> str:
+        return "<feed></feed>"

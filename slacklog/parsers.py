@@ -50,11 +50,16 @@ class SlackLogParser:
         log = SlackLog()
         log.startsWithSeparator = bool(re.match(r'\A(\+-+\+[\n]?)', data))
         log.endsWithSeparator = bool(re.search(r'[\n](\+-+\+[\n]?)\Z', data))
-        
-        if log.startsWithSeparator:
-            data = data[re.match(r'\A(\+-+\+[\n]?)', data).end():]
-        if log.endsWithSeparator:
-            data = data[:re.search(r'[\n](\+-+\+[\n]?)\Z', data).start(1)]
+
+        # Safely remove starting separator if present
+        m_start = re.match(r'\A(\+-+\+[\n]?)', data)
+        if m_start:
+            data = data[m_start.end():]
+
+        # Safely remove ending separator if present
+        m_end = re.search(r'[\n](\+-+\+[\n]?)\Z', data)
+        if m_end:
+            data = data[:m_end.start(1)]
 
         for entry_data in self.split_log_to_entries(data):
             entry = self.parse_entry(entry_data, log)

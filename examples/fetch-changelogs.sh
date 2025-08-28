@@ -55,19 +55,8 @@ trap cleanup EXIT
 mkdir -p "$DST_DIR"
 
 
-fetch_changelog slackware   12.0
-fetch_changelog slackware   12.1
-fetch_changelog slackware   13.0
-fetch_changelog slackware64 13.0
-fetch_changelog slackware   13.1
-fetch_changelog slackware64 13.1
-fetch_changelog slackware   13.37
-fetch_changelog slackware64 13.37
-fetch_changelog slackware   14.0
-fetch_changelog slackware64 14.0
-fetch_changelog slackware   14.1
-fetch_changelog slackware64 14.1
-fetch_changelog slackware   14.2
-fetch_changelog slackware64 14.2
+
+fetch_changelog slackware   15.0
+fetch_changelog slackware64 15.0
 fetch_changelog slackware   current
 fetch_changelog slackware64 current

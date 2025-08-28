@@ -14,12 +14,12 @@ from slacklog.formatters import (
     SlackLogAtomFormatter,
     SlackLogRssFormatter,
     SlackLogTxtFormatter,
-    SlackLogPyblosxomFormatter,
     SlackLogJsonFormatter
 )
 import sys
 import codecs
 
+# Helpers
 def u(s):
     """Ensure that a command line option argument is str (Unicode in Python 3)."""
     return s
@@ -43,7 +43,7 @@ def read(changelog, encoding):
 def write(out, data, encoding='utf-8'):
     """Writes data to a file using UTF-8 encoding by default."""
     try:
-        with codecs.open(out, 'w', encoding) as f:
+        with codecs.open(out, 'w', encoding=encoding) as f:
             f.write(data)
     except UnicodeEncodeError as e:
         print(f"{out}: {e.start}-{e.end}: {data[e.start:e.end]}: {e.reason}", file=sys.stderr)
@@ -78,7 +78,10 @@ def main(**kwargs):
 
     return opts, args
 
-# Example: slacklog2atom
+# --------------------
+# SlackLog CLI Functions
+# --------------------
+
 def slacklog2atom():
     opts, args = main(
         description='Convert Slackware ChangeLog to Atom',
@@ -114,3 +117,72 @@ def slacklog2atom():
     txt = read(opts.changelog, opts.encoding)
     atom = formatter.format(parser.parse(txt))
     write(opts.out, atom)
+
+def slacklog2rss():
+    opts, args = main(
+        description='Convert Slackware ChangeLog to RSS',
+        options={
+            'changelog': {'help': 'Read input from FILE', 'metavar': 'FILE', 'mandatory': True},
+            'encoding': {'help': 'ChangeLog encoding [default: iso8859-1]', 'default': 'iso8859-1'},
+            'out': {'help': 'Write output to FILE', 'metavar': 'FILE', 'mandatory': True},
+            'slackware': {'help': 'Slackware version [default: Slackware 13.1]', 'default': 'Slackware 13.1'},
+            'rssLink': {'help': 'Full URL of the RSS feed', 'metavar': 'URL', 'mandatory': True},
+            'description': {'help': 'Description of the feed', 'default': ''},
+            'managingEditor': {'help': 'Managing editor', 'default': ''},
+            'webMaster': {'help': 'Webmaster', 'default': ''}
+        }
+    )
+
+    parser = SlackLogParser()
+    txt = read(opts.changelog, opts.encoding)
+    log = parser.parse(txt)
+
+    formatter = SlackLogRssFormatter()
+    formatter.slackware = u(opts.slackware)
+    formatter.rssLink = u(opts.rssLink)
+    formatter.description = u(opts.description)
+    formatter.managingEditor = u(opts.managingEditor)
+    formatter.webMaster = u(opts.webMaster)
+    formatter.language = "en"
+
+    rss_text = formatter.format(log)
+    write(opts.out, rss_text)
+
+def slacklog2json():
+    opts, args = main(
+        description='Convert Slackware ChangeLog to JSON',
+        options={
+            'changelog': {'help': 'Read input from FILE', 'metavar': 'FILE', 'mandatory': True},
+            'encoding': {'help': 'ChangeLog encoding [default: iso8859-1]', 'default': 'iso8859-1'},
+            'out': {'help': 'Write output to FILE', 'metavar': 'FILE', 'mandatory': True},
+            'indent': {'help': 'JSON indent', 'default': 4}
+        }
+    )
+
+    parser = SlackLogParser()
+    txt = read(opts.changelog, opts.encoding)
+    log = parser.parse(txt)
+
+    formatter = SlackLogJsonFormatter()
+    formatter.indent = i(opts.indent)
+
+    json_text = formatter.format(log)
+    write(opts.out, json_text)
+
+def slacklog2txt():
+    opts, args = main(
+        description='Convert Slackware ChangeLog to plain text',
+        options={
+            'changelog': {'help': 'Read input from FILE', 'metavar': 'FILE', 'mandatory': True},
+            'encoding': {'help': 'ChangeLog encoding [default: iso8859-1]', 'default': 'iso8859-1'},
+            'out': {'help': 'Write output to FILE', 'metavar': 'FILE', 'mandatory': True}
+        }
+    )
+
+    parser = SlackLogParser()
+    txt = read(opts.changelog, opts.encoding)
+    log = parser.parse(txt)
+
+    formatter = SlackLogTxtFormatter()
+    text = formatter.format(log)
+    write(opts.out, text)

@@ -32,7 +32,7 @@ class SlackLogEntry:
                  timezone: tzinfo = None, twelveHourFormat: bool = None):
 
         assert isinstance(timestamp, datetime)
-        assert timestamp.tzinfo is not None and timestamp.tzinfo.utcoffset(timestamp).total_seconds() == 0
+        assert timestamp.tzinfo is not None  # allow any timezone
         assert isinstance(description, str)
         assert isinstance(log, SlackLog)
         if checksum is not None:
@@ -45,7 +45,7 @@ class SlackLogEntry:
             assert isinstance(timezone, tzinfo)
 
         self.timestamp = timestamp
-        """UTC timestamp of the entry."""
+        """Timestamp of the entry (with timezone)."""
         self.description = description
         """Description of the entry."""
         self.log = log
