@@ -1,8 +1,6 @@
 # coding=utf-8
-# encoding: utf-8
 import unittest
 import os
-import codecs
 import filecmp
 import shutil
 from slacklog.scripts import read
@@ -10,7 +8,7 @@ from slacklog.parsers import SlackLogParser
 from slacklog.formatters import SlackLogTxtFormatter
 
 
-class TxtFormatterTest (unittest.TestCase):
+class TxtFormatterTest(unittest.TestCase):
 
     def setUp(self):
         self.input = './test/changelogs/'
@@ -31,12 +29,11 @@ class TxtFormatterTest (unittest.TestCase):
 
         for changelog in changelogs:
             slacklog = parser.parse(read(self.input + changelog, self.encoding))
-            unicode_text = formatter.format(slacklog)
+            text = formatter.format(slacklog)
 
-            f = codecs.open(self.output + changelog, 'w', self.encoding)
-            f.write(unicode_text)
-            f.close()
+            with open(self.output + changelog, 'w', encoding=self.encoding) as f:
+                f.write(text)
 
-        match, mismatch, error = filecmp.cmpfiles(self.input, self.output, changelogs, False)
+        match, mismatch, errors = filecmp.cmpfiles(self.input, self.output, changelogs, shallow=False)
 
         self.assertEqual(len(changelogs), len(match))
