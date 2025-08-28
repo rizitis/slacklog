@@ -53,7 +53,7 @@ def main(**kwargs):
     """Common CLI handling for SlackLog scripts."""
     kwargs['usage'] = ''
     kwargs['version'] = f"%prog {slacklog.__version__}"
-    kwargs['epilog'] = ('Bug reports, suggestions, and patches should be sent to vmj@linuxbox.fi. '
+    kwargs['epilog'] = ('Bug reports, suggestions, and patches should be sent to rizitis@gmail.com. '
                         'This software is Free Software, released under GPLv3.')
 
     options = kwargs.pop('options', {})
@@ -92,7 +92,7 @@ def slacklog2atom():
             'out': {'help': 'Write output to FILE', 'metavar': 'FILE', 'mandatory': True},
             'quiet': {'help': 'Do not print warnings', 'action': 'store_true'},
             'max_entries': {'help': 'Max number of Atom entries [default: infinity]', 'metavar': 'NUM'},
-            'slackware': {'help': 'Slackware version [default: Slackware 13.1]', 'default': 'Slackware 13.1'},
+            'slackware': {'help': 'Slackware version [default: Slackware 15.0]', 'default': 'Slackware 15.0'},
             'link': {'help': 'Full URL of the Atom feed', 'metavar': 'URL', 'mandatory': True},
             'webLink': {'help': 'Full URL of the HTML version', 'metavar': 'URL'},
             'name': {'help': 'NAME of the feed author', 'metavar': 'NAME'},
