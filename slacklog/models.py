@@ -4,98 +4,79 @@ SlackLog models
 
 SlackLog models represent the ChangeLog.txt after parsing.
 """
+
 from datetime import datetime, tzinfo
 
-try:
-    str = unicode
-except NameError:
-    pass  # Forward compatibility with Py3k (unicode is not defined)
 
-
-class SlackLog (object):
+class SlackLog:
     """
-    Little more than a list of :any:`SlackLogEntry` objects.
+    Container for SlackLogEntry objects.
     """
 
     def __init__(self):
         self.entries = []
-        """The list of :any:`SlackLogEntry` objects. Empty by default."""
+        """List of SlackLogEntry objects."""
         self.startsWithSeparator = False
-        """Whether the log started with entry separator.
-        
-        If this is :py:const:`True`, it implies that the empty element preceding that separator
-        was dropped.
-        
-        This defaults to :py:const:`False`.
-        """
+        """True if the log started with an entry separator."""
         self.endsWithSeparator = False
-        """Whether the log ended with entry separator.
-        
-        If this is :py:const:`True`, it implies that the empty element following that separator
-        was dropped.
-        
-        This defaults to :py:const:`False`.
-        """
+        """True if the log ended with an entry separator."""
 
 
-class SlackLogEntry (object):
+class SlackLogEntry:
     """
-    An entry in a :any:`SlackLog`.
+    Represents a single entry in a SlackLog.
     """
 
-    def __init__(self, timestamp, description, log, checksum=None, identifier=None, parent=None,
-                 timezone=None, twelveHourFormat=None):
-        assert(isinstance(timestamp, datetime))
-        assert(isinstance(description, str))
-        assert(timestamp.tzinfo.utcoffset(timestamp).total_seconds() == 0)
-        assert(isinstance(log, SlackLog))
+    def __init__(self, timestamp: datetime, description: str, log: SlackLog,
+                 checksum: str = None, identifier: str = None, parent: str = None,
+                 timezone: tzinfo = None, twelveHourFormat: bool = None):
+
+        assert isinstance(timestamp, datetime)
+        assert timestamp.tzinfo is not None and timestamp.tzinfo.utcoffset(timestamp).total_seconds() == 0
+        assert isinstance(description, str)
+        assert isinstance(log, SlackLog)
         if checksum is not None:
-            assert(isinstance(checksum, str))
+            assert isinstance(checksum, str)
         if identifier is not None:
-            assert(isinstance(identifier, str))
+            assert isinstance(identifier, str)
         if parent is not None:
-            assert(isinstance(parent, str))
+            assert isinstance(parent, str)
         if timezone is not None:
-            assert(isinstance(timezone, tzinfo))
+            assert isinstance(timezone, tzinfo)
+
         self.timestamp = timestamp
-        """A :py:class:`datetime.datetime` timestamp in UTC."""
+        """UTC timestamp of the entry."""
         self.description = description
-        """A unicode description which may be empty."""
+        """Description of the entry."""
         self.log = log
-        """Reference to the :any:`SlackLog` that contains this entry."""
+        """Reference to the parent SlackLog."""
         self.checksum = checksum
-        """A unicode checksum or :py:const:`None`.
-        
-        This should identify the entry by content.  Two different logs may have the same entry,
-        but those entries have different parent.
-        """
+        """SHA512 checksum identifying the entry."""
         self.identifier = identifier
-        """A unicode identifier or :py:const:`None`.
-        
-        This should identify the entry by content and parent.
-        """
+        """SHA512 identifier including parent info."""
         self.parent = parent
-        """A unicode parent identifier or :py:const:`None`."""
+        """Identifier of the parent entry."""
         self.timezone = timezone
-        """The original timezone of the entry as :py:class:`datetime.tzinfo` or :py:const:`None`."""
+        """Original timezone of the entry."""
         self.twelveHourFormat = twelveHourFormat
-        """If this is :py:const:`True`, the original timestamp was in twelve hour format."""
+        """True if the original timestamp was 12-hour format."""
         self.pkgs = []
-        """The list of :any:`SlackLogPkg` objects. Empty by default."""
+        """List of SlackLogPkg objects contained in this entry."""
 
 
-class SlackLogPkg (object):
+class SlackLogPkg:
     """
-    An entry in a :any:`SlackLogEntry`.
+    Represents a single package in a SlackLogEntry.
     """
 
-    def __init__(self, pkg, description, entry):
-        assert(isinstance(pkg, str))
-        assert(isinstance(description, str))
-        assert(isinstance(entry, SlackLogEntry))
+    def __init__(self, pkg: str, description: str, entry: SlackLogEntry):
+        assert isinstance(pkg, str)
+        assert isinstance(description, str)
+        assert isinstance(entry, SlackLogEntry)
+
         self.pkg = pkg
-        """A unicode package identifier."""
+        """Package identifier."""
         self.description = description
-        """A unicode description."""
+        """Package description."""
         self.entry = entry
-        """Reference to the :any:`SlackLogEntry` that contains this package."""
+        """Reference to the parent SlackLogEntry."""
