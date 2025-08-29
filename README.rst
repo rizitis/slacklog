@@ -6,7 +6,7 @@ ChangeLog into other formats. Currently, RSS, Atom, JSON, and PyBlosxom
 formats are supported.
 
 - Source code: `https://github.com/rizitis/slacklog <https://github.com/rizitis/slacklog>`_
-- Documentation: `https://slacklog.readthedocs.org <https://slacklog.readthedocs.org>`_
+- Documentation: `https://rizitis.github.io/slacklog/ <https://rizitis.github.io/slacklog/>`_
 
 .. contents::
 
@@ -52,6 +52,7 @@ Current version is a fork by Ioannis Anagnostakis (rizitis):
 
 - Modified scripts for Python 3.9+
 - Removed Docker and tests
+- ForkHomePage `https://rizitis.github.io/slacklog/`_
 
 
 License

@@ -34,7 +34,7 @@ setup(
     maintainer='Ioannis Anagnostakis',
     maintainer_email='rizitis@gmail.com',
     project_urls={
-        'Documentation': 'https://slacklog.readthedocs.org',
+        'Documentation': 'https://rizitis.github.io/slacklog/',
         'Source': 'https://github.com/rizitis/slacklog/tree/python3',
         'Build status': '',
     },
