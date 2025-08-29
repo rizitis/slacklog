@@ -26,5 +26,11 @@ mv _modules modules
 echo "Updating HTML links...because of Jekyll hacking pages https://rizitis.github.io/slackware/"
 find . -name '*.html' -exec sed -i 's|"_static/|"static/|g; s|"_sources/|"sources/|g; s|"_modules/|"modules/|g' {} +
 
+find . -type f -exec sed -i \
+  -e 's/_static/static/g' \
+  -e 's/_modules/modules/g' \
+  -e 's/_sources/sources/g' {} +
+
+
 echo "Done! Now I must commit and push the changes."
 echo ""
