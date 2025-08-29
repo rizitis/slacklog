@@ -53,6 +53,7 @@ Current version is a fork by Ioannis Anagnostakis (rizitis):
 - Modified scripts for Python 3.9+
 - Removed Docker and tests
 - ForkHomePage `https://rizitis.github.io/slacklog/`_
+- Added python3-slacklog.SlackBuild on SBo
 
 
 License
