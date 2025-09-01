@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>slacklog – Convert Slackware Changelog to various formats &#8212; slacklog 10.0.0-python3fork documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/nature.css?v=279e0f84" />
+    <script src="_static/documentation_options.js?v=df53d4b2"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Release history" href="CHANGES.html" />
+    <link rel="prev" title="Welcome to slacklog’s documentation!" href="index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="CHANGES.html" title="Release history"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to slacklog’s documentation!"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">slacklog 10.0.0-python3fork documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">slacklog – Convert Slackware Changelog to various formats</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="slacklog-convert-slackware-changelog-to-various-formats">
+<h1><a class="toc-backref" href="#id1" role="doc-backlink">slacklog – Convert Slackware Changelog to various formats</a><a class="headerlink" href="#slacklog-convert-slackware-changelog-to-various-formats" title="Link to this heading">¶</a></h1>
+<p>slacklog provides programs and a library to convert a Slackware
+ChangeLog into other formats. Currently, RSS, Atom, JSON, and PyBlosxom
+formats are supported.</p>
+<ul class="simple">
+<li><p>Source code: <a class="reference external" href="https://github.com/rizitis/slacklog">https://github.com/rizitis/slacklog</a></p></li>
+<li><p>Documentation: <a class="reference external" href="https://rizitis.github.io/slacklog/">https://rizitis.github.io/slacklog/</a></p></li>
+</ul>
+<nav class="contents" id="contents">
+<p class="topic-title">Contents</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#slacklog-convert-slackware-changelog-to-various-formats" id="id1">slacklog – Convert Slackware Changelog to various formats</a></p>
+<ul>
+<li><p><a class="reference internal" href="#basic-usage" id="id2">Basic usage</a></p></li>
+<li><p><a class="reference internal" href="#requirements" id="id3">Requirements</a></p></li>
+<li><p><a class="reference internal" href="#installation" id="id4">Installation</a></p></li>
+<li><p><a class="reference internal" href="#authors" id="id5">Authors</a></p></li>
+<li><p><a class="reference internal" href="#license" id="id6">License</a></p></li>
+</ul>
+</li>
+</ul>
+</nav>
+<section id="basic-usage">
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Basic usage</a><a class="headerlink" href="#basic-usage" title="Link to this heading">¶</a></h2>
+<p>Typical usage of the program looks like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>$ slacklog2rss --changelog slackware-current/ChangeLog.txt \
+               --encoding iso8859-1 \
+               --out ~/public_html/slackware-current.rss \
+               --slackware &quot;Slackware current&quot; \
+               --rssLink &quot;http://linuxbox.fi/~vmj/slackware-current.rss&quot; \
+               --description &quot;Slackware current activity&quot; \
+               --managingEditor &quot;vmj@linuxbox.fi (Mikko Värri)&quot; \
+               --webMaster &quot;vmj@linuxbox.fi (Mikko Värri)&quot;
+</pre></div>
+</div>
+</section>
+<section id="requirements">
+<h2><a class="toc-backref" href="#id3" role="doc-backlink">Requirements</a><a class="headerlink" href="#requirements" title="Link to this heading">¶</a></h2>
+<p>In addition to Python, <cite>python3-dateutil</cite> from SlackBuilds.org is required.</p>
+<p>Python 3.09 and 3.12 is tested together with python3-dateutil-2.9.0.</p>
+</section>
+<section id="installation">
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">Installation</a><a class="headerlink" href="#installation" title="Link to this heading">¶</a></h2>
+<p>Recommended installation is using the SlackBuild from <a class="reference external" href="https://slackbuilds.org/repository/15.0/python/python3-slacklog/">SBo:</a></p>
+<p>The source code of this fork is available at
+<a class="reference external" href="https://github.com/rizitis/slacklog">GitHub</a> (python3 branch).
+<a class="reference external" href="https://github.com/rizitis/slacklog/releases">Latest Release</a></p>
+</section>
+<section id="authors">
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">Authors</a><a class="headerlink" href="#authors" title="Link to this heading">¶</a></h2>
+<p>Original author: Mikko Värri (<a class="reference external" href="mailto:vmj&#37;&#52;&#48;linuxbox&#46;fi">vmj<span>&#64;</span>linuxbox<span>&#46;</span>fi</a>)</p>
+<p>Current version is a fork by Ioannis Anagnostakis (rizitis):</p>
+<ul class="simple">
+<li><p>Modified scripts for Python 3.9+</p></li>
+<li><p>Removed Docker and tests</p></li>
+<li><p>ForkHomePage <a class="reference external" href="https://rizitis.github.io/slacklog/">https://rizitis.github.io/slacklog/</a></p></li>
+<li><p>Added python3-slacklog.SlackBuild on SBo</p></li>
+</ul>
+</section>
+<section id="license">
+<h2><a class="toc-backref" href="#id6" role="doc-backlink">License</a><a class="headerlink" href="#license" title="Link to this heading">¶</a></h2>
+<p>slacklog is Free Software, licensed under the GNU General Public License (GPL),
+version 3 or later. See LICENSE.txt file for details.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">slacklog – Convert Slackware Changelog to various formats</a><ul>
+<li><a class="reference internal" href="#basic-usage">Basic usage</a></li>
+<li><a class="reference internal" href="#requirements">Requirements</a></li>
+<li><a class="reference internal" href="#installation">Installation</a></li>
+<li><a class="reference internal" href="#authors">Authors</a></li>
+<li><a class="reference internal" href="#license">License</a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="index.html"
+                          title="previous chapter">Welcome to slacklog’s documentation!</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="CHANGES.html"
+                          title="next chapter">Release history</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/README.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="CHANGES.html" title="Release history"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to slacklog’s documentation!"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">slacklog 10.0.0-python3fork documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">slacklog – Convert Slackware Changelog to various formats</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2019, Mikko Värri.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    </div>
+  </body>
+</html>

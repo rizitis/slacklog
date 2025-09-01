@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>slacklog.parsers &#8212; slacklog 10.0.0-python3fork documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/nature.css?v=279e0f84" />
+    <script src="../../_static/documentation_options.js?v=df53d4b2"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">slacklog 10.0.0-python3fork documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">slacklog.parsers</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for slacklog.parsers</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">SlackLog parsers</span>
+<span class="sd">================</span>
+
+<span class="sd">SlackLog parser takes a string representation of a Slackware ChangeLog.txt and produces an in-memory representation</span>
+<span class="sd">of it.</span>
+
+<span class="sd">The in-memory representation is an instance of :any:`SlackLog`.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dateutil</span><span class="w"> </span><span class="kn">import</span> <span class="n">parser</span><span class="p">,</span> <span class="n">tz</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">slacklog.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SlackLog</span><span class="p">,</span> <span class="n">SlackLogEntry</span><span class="p">,</span> <span class="n">SlackLogPkg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">codecs</span><span class="w"> </span><span class="kn">import</span> <span class="n">encode</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="c1"># Package name regex: starts from the beginning of line, colon + double space, must look like file name</span>
+<span class="n">pkg_name_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;\A[-a-zA-Z0-9_]+[/.][-a-zA-Z0-9_+/.]*[*]?:  &#39;</span><span class="p">)</span>
+
+<span class="c1"># Regex to detect AM/PM (12-hour) timestamps</span>
+<span class="n">am_pm_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39; [AaPp][Mm]? &#39;</span><span class="p">)</span>
+
+<span class="c1"># Timezone mapping</span>
+<span class="n">tzinfos</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;CDT&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mi">5</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span>
+    <span class="s1">&#39;CST&#39;</span><span class="p">:</span> <span class="o">-</span><span class="mi">6</span> <span class="o">*</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">60</span><span class="p">,</span>
+    <span class="s1">&#39;UTC&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<span class="p">}</span>
+
+<div class="viewcode-block" id="SlackLogParser">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SlackLogParser</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parser for Slackware ChangeLog.txt files.</span>
+<span class="sd">    Works for Slackware 12.x and newer.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">quiet</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;If True, warnings about date parsing are not printed.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_date</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;If set to a datetime object, older log entries are ignored.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ENTRY</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Counter of entries (debugging).&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">PKG</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Counter of packages (debugging).&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SlackLogParser.parse">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser.parse">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return SlackLog object representing parsed data.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="n">log</span> <span class="o">=</span> <span class="n">SlackLog</span><span class="p">()</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">startsWithSeparator</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;\A(\+-+\+[\n]?)&#39;</span><span class="p">,</span> <span class="n">data</span><span class="p">))</span>
+        <span class="n">log</span><span class="o">.</span><span class="n">endsWithSeparator</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;[\n](\+-+\+[\n]?)\Z&#39;</span><span class="p">,</span> <span class="n">data</span><span class="p">))</span>
+
+        <span class="c1"># Safely remove starting separator if present</span>
+        <span class="n">m_start</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;\A(\+-+\+[\n]?)&#39;</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">m_start</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">m_start</span><span class="o">.</span><span class="n">end</span><span class="p">():]</span>
+
+        <span class="c1"># Safely remove ending separator if present</span>
+        <span class="n">m_end</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;[\n](\+-+\+[\n]?)\Z&#39;</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">m_end</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[:</span><span class="n">m_end</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="mi">1</span><span class="p">)]</span>
+
+        <span class="k">for</span> <span class="n">entry_data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">split_log_to_entries</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+            <span class="n">entry</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_entry</span><span class="p">(</span><span class="n">entry_data</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">entry</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">entries</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">entry</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">log</span></div>
+
+
+<div class="viewcode-block" id="SlackLogParser.split_log_to_entries">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser.split_log_to_entries">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">split_log_to_entries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Split the ChangeLog into individual entries.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="n">raw_entries</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;\+-+\+&#39;</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="n">entries</span> <span class="o">=</span> <span class="p">[</span><span class="n">entry</span><span class="o">.</span><span class="n">lstrip</span><span class="p">()</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">raw_entries</span> <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+        <span class="n">entries</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">entries</span></div>
+
+
+<div class="viewcode-block" id="SlackLogParser.parse_entry">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser.parse_entry">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">log</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse a single entry.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">log</span><span class="p">,</span> <span class="n">SlackLog</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ENTRY</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">PKG</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="n">checksum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_entry_checksum</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">parent</span> <span class="o">=</span> <span class="n">log</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">identifier</span> <span class="k">if</span> <span class="n">log</span><span class="o">.</span><span class="n">entries</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">identifier</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_entry_identifier</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">checksum</span><span class="p">,</span> <span class="n">parent</span><span class="p">)</span>
+
+        <span class="n">timestamp</span><span class="p">,</span> <span class="n">timezone</span><span class="p">,</span> <span class="n">twelve_hour</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_entry_timestamp</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_date</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_date</span> <span class="o">&gt;</span> <span class="n">timestamp</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="n">description</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_entry_description</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">entry</span> <span class="o">=</span> <span class="n">SlackLogEntry</span><span class="p">(</span><span class="n">timestamp</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">log</span><span class="p">,</span> <span class="n">checksum</span><span class="o">=</span><span class="n">checksum</span><span class="p">,</span>
+                              <span class="n">identifier</span><span class="o">=</span><span class="n">identifier</span><span class="p">,</span> <span class="n">parent</span><span class="o">=</span><span class="n">parent</span><span class="p">,</span>
+                              <span class="n">timezone</span><span class="o">=</span><span class="n">timezone</span><span class="p">,</span> <span class="n">twelveHourFormat</span><span class="o">=</span><span class="n">twelve_hour</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">pkg_data</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">split_entry_to_pkgs</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+            <span class="n">pkg</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_pkg</span><span class="p">(</span><span class="n">pkg_data</span><span class="p">,</span> <span class="n">entry</span><span class="p">)</span>
+            <span class="n">entry</span><span class="o">.</span><span class="n">pkgs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pkg</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">entry</span></div>
+
+
+<div class="viewcode-block" id="SlackLogParser.gen_entry_checksum">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser.gen_entry_checksum">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">gen_entry_checksum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate SHA512 checksum of entry.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha512</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">))</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="SlackLogParser.gen_entry_identifier">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser.gen_entry_identifier">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">gen_entry_identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">checksum</span><span class="p">,</span> <span class="n">parent</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate SHA512 identifier for entry.&quot;&quot;&quot;</span>
+        <span class="n">combined</span> <span class="o">=</span> <span class="p">(</span><span class="n">parent</span> <span class="o">+</span> <span class="n">checksum</span><span class="p">)</span> <span class="k">if</span> <span class="n">parent</span> <span class="k">else</span> <span class="n">checksum</span>
+        <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha512</span><span class="p">(</span><span class="n">combined</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">))</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="SlackLogParser.parse_entry_timestamp">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser.parse_entry_timestamp">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_entry_timestamp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse timestamp of entry and return timestamp, timezone, 12-hour flag, and remaining data.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="n">timestamp_str</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_line</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="n">timestamp</span><span class="p">,</span> <span class="n">timezone</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_date_with_timezone</span><span class="p">(</span><span class="n">timestamp_str</span><span class="p">)</span>
+        <span class="n">twelve_hour</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">am_pm_re</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">timestamp_str</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">timezone</span><span class="p">,</span> <span class="n">twelve_hour</span><span class="p">,</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="SlackLogParser.parse_entry_description">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser.parse_entry_description">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_entry_description</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse entry description and return description + remaining data.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="n">description</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="k">while</span> <span class="n">data</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">pkg_name_re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+            <span class="n">line</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_line</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            <span class="n">description</span> <span class="o">+=</span> <span class="n">line</span>
+        <span class="k">return</span> <span class="n">description</span><span class="p">,</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="SlackLogParser.split_entry_to_pkgs">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser.split_entry_to_pkgs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">split_entry_to_pkgs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Split entry content into package blocks.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">data</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+            <span class="k">return</span> <span class="p">[]</span>
+        <span class="n">pkgs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">pkg_lines</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">pkg_name_re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">line</span><span class="p">):</span>
+                <span class="n">pkg_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">pkg_lines</span><span class="p">:</span>
+                    <span class="n">pkgs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pkg_lines</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="n">pkg_lines</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">if</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="n">pkg_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">pkg_lines</span><span class="p">:</span>
+            <span class="n">pkgs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pkg_lines</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">pkgs</span></div>
+
+
+<div class="viewcode-block" id="SlackLogParser.parse_pkg">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser.parse_pkg">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_pkg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">entry</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse a package from a block of text.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="n">SlackLogEntry</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">PKG</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">pkg</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_pkg_name</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;data: &#39;</span><span class="si">{</span><span class="n">data</span><span class="p">[:</span><span class="mi">50</span><span class="p">]</span><span class="si">}</span><span class="s2">...&#39;&quot;</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+            <span class="k">raise</span>
+        <span class="n">description</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_pkg_description</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">SlackLogPkg</span><span class="p">(</span><span class="n">pkg</span><span class="p">,</span> <span class="n">description</span><span class="p">,</span> <span class="n">entry</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SlackLogParser.parse_pkg_name">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser.parse_pkg_name">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_pkg_name</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract package name and description from a line.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;:&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SlackLogParser.parse_pkg_description">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser.parse_pkg_description">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_pkg_description</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return package description.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="SlackLogParser.get_line">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser.get_line">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_line</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Consume and return first line + remainder.&quot;&quot;&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+            <span class="n">line</span><span class="p">,</span> <span class="n">rest</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">line</span> <span class="o">+</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">rest</span>
+        <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="s1">&#39;&#39;</span></div>
+
+
+<div class="viewcode-block" id="SlackLogParser.parse_date">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser.parse_date">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_date</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse date string to datetime in UTC.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">timestamp</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parse_date_with_timezone</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">timestamp</span></div>
+
+
+<div class="viewcode-block" id="SlackLogParser.parse_date_with_timezone">
+<a class="viewcode-back" href="../../parsers.html#slacklog.parsers.SlackLogParser.parse_date_with_timezone">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_date_with_timezone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse date string to datetime + original tzinfo.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">tzinfos</span><span class="o">=</span><span class="n">tzinfos</span><span class="p">)</span>
+        <span class="n">timezone</span> <span class="o">=</span> <span class="n">timestamp</span><span class="o">.</span><span class="n">tzinfo</span>
+
+        <span class="k">if</span> <span class="n">timezone</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">quiet</span><span class="p">:</span>
+                <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: Assuming UTC, input was &#39;</span><span class="si">{</span><span class="n">data</span><span class="si">}</span><span class="s2">&#39;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">timestamp</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">tz</span><span class="o">.</span><span class="n">tzutc</span><span class="p">())</span>
+        <span class="k">elif</span> <span class="n">timestamp</span><span class="o">.</span><span class="n">tzinfo</span><span class="o">.</span><span class="n">utcoffset</span><span class="p">(</span><span class="n">timestamp</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">tzname</span> <span class="o">=</span> <span class="n">timezone</span><span class="o">.</span><span class="n">tzname</span><span class="p">(</span><span class="n">timestamp</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">quiet</span> <span class="ow">and</span> <span class="n">tzname</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">tzinfos</span><span class="p">:</span>
+                <span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: Converting &#39;</span><span class="si">{</span><span class="n">tzname</span><span class="si">}</span><span class="s2">&#39; to UTC</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">timestamp</span><span class="o">.</span><span class="n">astimezone</span><span class="p">(</span><span class="n">tz</span><span class="o">.</span><span class="n">tzutc</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">timestamp</span><span class="p">,</span> <span class="n">timezone</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">slacklog 10.0.0-python3fork documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">slacklog.parsers</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2019, Mikko Värri.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    </div>
+  </body>
+</html>

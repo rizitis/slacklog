@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>slacklog.formatters &#8212; slacklog 10.0.0-python3fork documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/nature.css?v=279e0f84" />
+    <script src="../../_static/documentation_options.js?v=df53d4b2"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">slacklog 10.0.0-python3fork documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">slacklog.formatters</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for slacklog.formatters</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">SlackLog formatters</span>
+<span class="sd">===================</span>
+
+<span class="sd">SlackLog formatter takes an in-memory representation of a Slackware ChangeLog.txt and produces different</span>
+<span class="sd">representations of it (TXT, RSS, Atom, JSON).</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">datetime</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">json</span><span class="w"> </span><span class="kn">import</span> <span class="n">dumps</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dateutil</span><span class="w"> </span><span class="kn">import</span> <span class="n">tz</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">slacklog.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SlackLog</span><span class="p">,</span> <span class="n">SlackLogEntry</span><span class="p">,</span> <span class="n">SlackLogPkg</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">readable</span><span class="p">(</span><span class="n">d</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">d</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%a</span><span class="s2">, </span><span class="si">%d</span><span class="s2"> %b %Y %H:%M:%S GMT&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">anchor</span><span class="p">(</span><span class="n">d</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">d</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">T%H%M%SZ&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="SlackLogFormatter">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogFormatter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SlackLogFormatter</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base class for SlackLog formatters.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_entries</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_pkgs</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="SlackLogFormatter.format">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogFormatter.format">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log</span><span class="p">:</span> <span class="n">SlackLog</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_log_preamble</span><span class="p">(</span><span class="n">log</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_list</span><span class="p">(</span><span class="n">log</span><span class="o">.</span><span class="n">entries</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_entry</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_entries</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_log_postamble</span><span class="p">(</span><span class="n">log</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="SlackLogFormatter.format_log_preamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogFormatter.format_log_preamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_log_preamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log</span><span class="p">:</span> <span class="n">SlackLog</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;&#39;</span></div>
+
+
+<div class="viewcode-block" id="SlackLogFormatter.format_log_postamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogFormatter.format_log_postamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_log_postamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log</span><span class="p">:</span> <span class="n">SlackLog</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;&#39;</span></div>
+
+
+<div class="viewcode-block" id="SlackLogFormatter.format_entry">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogFormatter.format_entry">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_entry</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entry</span><span class="p">:</span> <span class="n">SlackLogEntry</span><span class="p">,</span> <span class="n">is_first</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">is_last</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_entry_separator</span><span class="p">(</span><span class="n">is_first</span><span class="p">,</span> <span class="n">is_last</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_entry_preamble</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_list</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">pkgs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_pkg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_pkgs</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_entry_postamble</span><span class="p">(</span><span class="n">entry</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="SlackLogFormatter.format_entry_separator">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogFormatter.format_entry_separator">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_entry_separator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">is_first</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">is_last</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;&#39;</span></div>
+
+
+<div class="viewcode-block" id="SlackLogFormatter.format_entry_preamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogFormatter.format_entry_preamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_entry_preamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entry</span><span class="p">:</span> <span class="n">SlackLogEntry</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;&#39;</span></div>
+
+
+<div class="viewcode-block" id="SlackLogFormatter.format_entry_postamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogFormatter.format_entry_postamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_entry_postamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entry</span><span class="p">:</span> <span class="n">SlackLogEntry</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;&#39;</span></div>
+
+
+<div class="viewcode-block" id="SlackLogFormatter.format_pkg">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogFormatter.format_pkg">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_pkg</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pkg</span><span class="p">:</span> <span class="n">SlackLogPkg</span><span class="p">,</span> <span class="n">is_first</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">is_last</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_pkg_separator</span><span class="p">(</span><span class="n">is_first</span><span class="p">,</span> <span class="n">is_last</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_pkg_preamble</span><span class="p">(</span><span class="n">pkg</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">format_pkg_postamble</span><span class="p">(</span><span class="n">pkg</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="SlackLogFormatter.format_pkg_separator">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogFormatter.format_pkg_separator">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_pkg_separator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">is_first</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">is_last</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;&#39;</span></div>
+
+
+<div class="viewcode-block" id="SlackLogFormatter.format_pkg_preamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogFormatter.format_pkg_preamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_pkg_preamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pkg</span><span class="p">:</span> <span class="n">SlackLogPkg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;&#39;</span></div>
+
+
+<div class="viewcode-block" id="SlackLogFormatter.format_pkg_postamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogFormatter.format_pkg_postamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_pkg_postamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pkg</span><span class="p">:</span> <span class="n">SlackLogPkg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;&#39;</span></div>
+
+
+<div class="viewcode-block" id="SlackLogFormatter.format_list">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogFormatter.format_list">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">items</span><span class="p">,</span> <span class="n">item_formatter</span><span class="p">,</span> <span class="n">max_items</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+        <span class="n">num_items</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">items</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">max_items</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">num_items</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">num_items</span><span class="p">,</span> <span class="n">max_items</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_items</span><span class="p">):</span>
+            <span class="n">data</span> <span class="o">+=</span> <span class="n">item_formatter</span><span class="p">(</span><span class="n">items</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">i</span> <span class="o">==</span> <span class="n">num_items</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SlackLogTxtFormatter">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogTxtFormatter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SlackLogTxtFormatter</span><span class="p">(</span><span class="n">SlackLogFormatter</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Recreate original ChangeLog.txt format.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SlackLogTxtFormatter.format_log_preamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogTxtFormatter.format_log_preamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_log_preamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log</span><span class="p">:</span> <span class="n">SlackLog</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;+--------------------------+</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="k">if</span> <span class="n">log</span><span class="o">.</span><span class="n">startsWithSeparator</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span></div>
+
+
+<div class="viewcode-block" id="SlackLogTxtFormatter.format_log_postamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogTxtFormatter.format_log_postamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_log_postamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log</span><span class="p">:</span> <span class="n">SlackLog</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;+--------------------------+</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="k">if</span> <span class="n">log</span><span class="o">.</span><span class="n">endsWithSeparator</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span></div>
+
+
+<div class="viewcode-block" id="SlackLogTxtFormatter.format_entry_separator">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogTxtFormatter.format_entry_separator">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_entry_separator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">is_first</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">is_last</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;+--------------------------+</span><span class="se">\n</span><span class="s1">&#39;</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">is_first</span> <span class="k">else</span> <span class="s1">&#39;&#39;</span></div>
+
+
+<div class="viewcode-block" id="SlackLogTxtFormatter.format_entry_preamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogTxtFormatter.format_entry_preamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_entry_preamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entry</span><span class="p">:</span> <span class="n">SlackLogEntry</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">timestamp</span>
+        <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">timezone</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">timezone</span><span class="p">,</span> <span class="n">tz</span><span class="o">.</span><span class="n">tzutc</span><span class="p">):</span>
+            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">timestamp</span><span class="o">.</span><span class="n">astimezone</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">timezone</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">twelveHourFormat</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">timestamp</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%a</span><span class="s2"> </span><span class="si">%d</span><span class="s2"> %b %Y %I:%M:%S %p %Z&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">timestamp</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%a</span><span class="s2"> %b </span><span class="si">%d</span><span class="s2"> %H:%M:%S %Z %Y&quot;</span><span class="p">)</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39; 0(\d) &#39;</span><span class="p">,</span> <span class="sa">r</span><span class="s1">&#39;  \1 &#39;</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">description</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">+=</span> <span class="n">entry</span><span class="o">.</span><span class="n">description</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="SlackLogTxtFormatter.format_pkg_preamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogTxtFormatter.format_pkg_preamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_pkg_preamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pkg</span><span class="p">:</span> <span class="n">SlackLogPkg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pkg</span><span class="o">.</span><span class="n">pkg</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pkg</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">&quot;</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SlackLogRssFormatter">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogRssFormatter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SlackLogRssFormatter</span><span class="p">(</span><span class="n">SlackLogFormatter</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate an RSS feed from SlackLog.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">slackware</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rssLink</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">webLink</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">language</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">managingEditor</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">webMaster</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lastBuildDate</span> <span class="o">=</span> <span class="kc">None</span>
+
+<div class="viewcode-block" id="SlackLogRssFormatter.format_log_preamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogRssFormatter.format_log_preamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_log_preamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log</span><span class="p">:</span> <span class="n">SlackLog</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="s1">&#39;&lt;?xml version=&quot;1.0&quot;?&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="s1">&#39;&lt;rss version=&quot;2.0&quot; xmlns:atom=&quot;http://www.w3.org/2005/Atom&quot;&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="s1">&#39;  &lt;channel&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">&#39;    &lt;atom:link href=&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">rssLink</span><span class="si">}</span><span class="s1">&quot; rel=&quot;self&quot; type=&quot;application/rss+xml&quot; /&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">&#39;    &lt;title&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">slackware</span><span class="si">}</span><span class="s1"> ChangeLog&lt;/title&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="n">link</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">webLink</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">rssLink</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">&#39;    &lt;link&gt;</span><span class="si">{</span><span class="n">link</span><span class="si">}</span><span class="s1">&lt;/link&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">&#39;    &lt;description&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s1">&lt;/description&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="s1">&#39;    &lt;docs&gt;http://www.rssboard.org/rss-specification&lt;/docs&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">&#39;    &lt;language&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">language</span><span class="si">}</span><span class="s1">&lt;/language&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">managingEditor</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">&#39;    &lt;managingEditor&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">managingEditor</span><span class="si">}</span><span class="s1">&lt;/managingEditor&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">webMaster</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">&#39;    &lt;webMaster&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">webMaster</span><span class="si">}</span><span class="s1">&lt;/webMaster&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="n">pub_date</span> <span class="o">=</span> <span class="n">readable</span><span class="p">(</span><span class="n">log</span><span class="o">.</span><span class="n">entries</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span> <span class="k">if</span> <span class="n">log</span><span class="o">.</span><span class="n">entries</span> <span class="k">else</span> <span class="n">readable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lastBuildDate</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">())</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">&#39;    &lt;pubDate&gt;</span><span class="si">{</span><span class="n">pub_date</span><span class="si">}</span><span class="s1">&lt;/pubDate&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="n">last_build</span> <span class="o">=</span> <span class="n">readable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lastBuildDate</span> <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">())</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">&#39;    &lt;lastBuildDate&gt;</span><span class="si">{</span><span class="n">last_build</span><span class="si">}</span><span class="s1">&lt;/lastBuildDate&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="s1">&#39;    &lt;generator&gt;SlackLog&lt;/generator&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="SlackLogRssFormatter.format_log_postamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogRssFormatter.format_log_postamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_log_postamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log</span><span class="p">:</span> <span class="n">SlackLog</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;  &lt;/channel&gt;</span><span class="se">\n</span><span class="s1">&lt;/rss&gt;</span><span class="se">\n</span><span class="s1">&#39;</span></div>
+
+
+<div class="viewcode-block" id="SlackLogRssFormatter.format_entry_preamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogRssFormatter.format_entry_preamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_entry_preamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entry</span><span class="p">:</span> <span class="n">SlackLogEntry</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="s1">&#39;    &lt;item&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="n">link</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">webLink</span><span class="si">}</span><span class="s2">#</span><span class="si">{</span><span class="n">anchor</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">webLink</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">slackware</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;-&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">anchor</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">perma</span> <span class="o">=</span> <span class="s1">&#39;true&#39;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">webLink</span> <span class="k">else</span> <span class="s1">&#39;false&#39;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">&#39;      &lt;guid isPermaLink=&quot;</span><span class="si">{</span><span class="n">perma</span><span class="si">}</span><span class="s1">&quot;&gt;</span><span class="si">{</span><span class="n">link</span><span class="si">}</span><span class="s1">&lt;/guid&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">&#39;      &lt;title&gt;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">slackware</span><span class="si">}</span><span class="s1"> changes for </span><span class="si">{</span><span class="n">readable</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span><span class="si">}</span><span class="s1">&lt;/title&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="sa">f</span><span class="s1">&#39;      &lt;pubDate&gt;</span><span class="si">{</span><span class="n">readable</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span><span class="si">}</span><span class="s1">&lt;/pubDate&gt;</span><span class="se">\n</span><span class="s1">&#39;</span>
+        <span class="n">data</span> <span class="o">+=</span> <span class="s1">&#39;      &lt;description&gt;&lt;![CDATA[&lt;pre&gt;&#39;</span>
+        <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">description</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">+=</span> <span class="n">entry</span><span class="o">.</span><span class="n">description</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;&lt;&#39;</span><span class="p">,</span> <span class="s1">&#39;&amp;lt;&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span></div>
+
+
+<div class="viewcode-block" id="SlackLogRssFormatter.format_entry_postamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogRssFormatter.format_entry_postamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_entry_postamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">entry</span><span class="p">:</span> <span class="n">SlackLogEntry</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s1">&#39;&lt;/pre&gt;]]&gt;&lt;/description&gt;</span><span class="se">\n</span><span class="s1">    &lt;/item&gt;</span><span class="se">\n</span><span class="s1">&#39;</span></div>
+
+
+<div class="viewcode-block" id="SlackLogRssFormatter.format_pkg_preamble">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogRssFormatter.format_pkg_preamble">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format_pkg_preamble</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pkg</span><span class="p">:</span> <span class="n">SlackLogPkg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">pkg</span><span class="o">.</span><span class="n">pkg</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">pkg</span><span class="o">.</span><span class="n">description</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;&lt;&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&amp;lt;&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="SlackLogJsonFormatter">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogJsonFormatter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SlackLogJsonFormatter</span><span class="p">(</span><span class="n">SlackLogFormatter</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate JSON output from SlackLog.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SlackLogJsonFormatter.format">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogJsonFormatter.format">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log</span><span class="p">:</span> <span class="n">SlackLog</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">dumps</span><span class="p">(</span>
+            <span class="n">log</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">json_default</span><span class="p">,</span>
+            <span class="n">indent</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;indent&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+            <span class="n">separators</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">,</span> <span class="s1">&#39;:&#39;</span><span class="p">)</span>  <span class="c1"># &lt;- removes spaces after colon</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SlackLogJsonFormatter.json_default">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogJsonFormatter.json_default">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">json_default</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">obj</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">obj</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">SlackLog</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s1">&#39;entries&#39;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">entries</span><span class="p">,</span>
+                <span class="s1">&#39;startsWithSeparator&#39;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">startsWithSeparator</span><span class="p">,</span>
+                <span class="s1">&#39;endsWithSeparator&#39;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">endsWithSeparator</span>
+            <span class="p">}</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">SlackLogEntry</span><span class="p">):</span>
+            <span class="n">tz_obj</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s1">&#39;timezone&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">tz_name</span> <span class="o">=</span> <span class="n">tz_obj</span><span class="o">.</span><span class="n">tzname</span><span class="p">(</span><span class="n">obj</span><span class="o">.</span><span class="n">timestamp</span><span class="p">)</span> <span class="k">if</span> <span class="n">tz_obj</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s1">&#39;timestamp&#39;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">timestamp</span><span class="p">,</span>
+                <span class="s1">&#39;timezone&#39;</span><span class="p">:</span> <span class="n">tz_name</span><span class="p">,</span>
+                <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+                <span class="s1">&#39;pkgs&#39;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">pkgs</span><span class="p">,</span>
+                <span class="s1">&#39;checksum&#39;</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s1">&#39;checksum&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;identifier&#39;</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s1">&#39;identifier&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                <span class="s1">&#39;parent&#39;</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="s1">&#39;parent&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="p">}</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">SlackLogPkg</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">{</span>
+                <span class="s1">&#39;pkg&#39;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">pkg</span><span class="p">,</span>
+                <span class="s1">&#39;description&#39;</span><span class="p">:</span> <span class="n">obj</span><span class="o">.</span><span class="n">description</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span></div>
+</div>
+
+
+<div class="viewcode-block" id="SlackLogAtomFormatter">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogAtomFormatter">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SlackLogAtomFormatter</span><span class="p">(</span><span class="n">SlackLogFormatter</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Minimal Atom feed formatter stub for compatibility.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="SlackLogAtomFormatter.format">
+<a class="viewcode-back" href="../../formatters.html#slacklog.formatters.SlackLogAtomFormatter.format">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">log</span><span class="p">:</span> <span class="n">SlackLog</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;&lt;feed&gt;&lt;/feed&gt;&quot;</span></div>
+</div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="Related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">slacklog 10.0.0-python3fork documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">slacklog.formatters</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2019, Mikko Värri.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    </div>
+  </body>
+</html>
