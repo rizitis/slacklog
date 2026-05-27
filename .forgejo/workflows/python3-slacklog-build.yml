@@ -123,10 +123,6 @@ jobs:
 #          slk_install "${{ inputs.package_name }}"
 #          slk_check_version "${{ inputs.package_name }}" "${{ inputs.version }}"
 
-      - name: Captain Slack is here
-        run: |
-          cat cptn.nfo
-          cat distro.nfo
 
       - name: Upload package artifact
         if: inputs.upload_artifact
