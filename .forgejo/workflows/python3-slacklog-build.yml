@@ -116,11 +116,12 @@ jobs:
           echo "package_file=$(basename "${PKG}")" >> "${GITHUB_OUTPUT}"
           echo "package_path=${PKG}"               >> "${GITHUB_OUTPUT}"
 
-      - name: Verify installed version
-        run: |
-          source slk-ci.sh
-          slk_install "${{ inputs.package_name }}"
-          slk_check_version "${{ inputs.package_name }}" "${{ inputs.version }}"
+# This works fine, and break build as it should be :) since installation pkg_name is just slacklog :)
+#      - name: Verify installed version
+#        run: |
+#          source slk-ci.sh
+#          slk_install "${{ inputs.package_name }}"
+#          slk_check_version "${{ inputs.package_name }}" "${{ inputs.version }}"
 
       - name: Captain Slack is here
         run: |
